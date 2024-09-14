@@ -44,28 +44,30 @@ class ASRClient:
     async def close(self):
         if self.ws:
             try:
-                ws = self.ws
+                await self.ws.send('Done')
+                await self.ws.close()
                 self.ws = None
-                await ws.close()
                 print('WebSocket connection closed.')
             except Exception as e:
                 print(f'Error closing WebSocket: {e}')
+                self.ws = None
 
-asr_client = ASRClient()
-
-async def start_recording():
+async def start_recording(state):
+    # Create a new ASRClient instance for this client if not already created
+    if state is None:
+        state = ASRClient()
     # Attempt to open WebSocket connection
-    success = await asr_client.connect()
+    success = await state.connect()
     if not success:
         # Return an error message to display in the transcription box
-        return 'Error: Failed to connect to ASR server.'
+        return state, 'Error: Failed to connect to ASR server.'
     else:
-        asr_client.transcript = ''
-        return ''  # Clear the transcription box
+        state.transcript = ''
+        return state, ''  # Clear the transcription box
 
-async def transcribe(audio_chunk):
-    if asr_client.ws is None:
-        return asr_client.transcript
+async def transcribe(audio_chunk, state):
+    if state is None or state.ws is None:
+        return state, ''
     if audio_chunk is not None:
         sr, audio_data = audio_chunk
         audio_data = audio_data.astype(np.float32)
@@ -79,23 +81,25 @@ async def transcribe(audio_chunk):
         if max_abs > 0:
             audio_data = audio_data / max_abs
 
-        await asr_client.send_audio(audio_data)
-        return asr_client.transcript
+        await state.send_audio(audio_data)
+        return state, state.transcript
     else:
-        return asr_client.transcript
+        return state, state.transcript
 
-async def stop_recording():
-    await asr_client.close()
-    return asr_client.transcript  # Optionally return the final transcript
+async def stop_recording(state):
+    if state is not None:
+        await state.close()
+    return state
 
 with gr.Blocks() as demo:
     transcript_box = gr.Textbox(label='Transcription')
     audio_input = gr.Audio(sources=['microphone'], streaming=True, label='Microphone Input')
+    state = gr.State()
 
     # Assign event handlers
-    audio_input.start_recording(fn=start_recording, inputs=None, outputs=transcript_box)
-    audio_input.stream(fn=transcribe, inputs=audio_input, outputs=transcript_box)
-    audio_input.stop_recording(fn=stop_recording, inputs=None, outputs=transcript_box)
+    audio_input.start_recording(fn=start_recording, inputs=state, outputs=[state, transcript_box])
+    audio_input.stream(fn=transcribe, inputs=[audio_input, state], outputs=[state, transcript_box])
+    audio_input.stop_recording(fn=stop_recording, inputs=state, outputs=state)
 
     demo.title = "Real-Time Streaming ASR with Gradio"
     demo.description = "Speak into your microphone and see the transcription in real-time."
