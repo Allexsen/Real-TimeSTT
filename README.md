@@ -30,12 +30,12 @@ To automate the setup process, run the setup script for your operating system:
 
 Linux/MacOS:
 ```bash
-./setup.sh
+./setup-linux.sh
 ```
 
 Windows:
 ```bash
-setup.bat
+setup-win.bat
 ```
 
 ## Manual Setup
@@ -81,7 +81,7 @@ Ensure the paths in the server script match the locations of your model files.
 
 Linux/MacOS:
 ```bash
-./run_asr_server_lin.sh
+./run_asr_server_linux.sh
 ```
 
 Windows:
@@ -128,7 +128,7 @@ To run the ASR server with SSL for secure connections:
 
 Add `--certificate cert.pem --key key.pem` to your server script.
 
-The full script will now look like:
+The full script will now look like this:
 ```bash
 cd ./sherpa-onnx
 python3 python-api-examples/streaming_server.py \
