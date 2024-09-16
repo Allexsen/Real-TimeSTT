@@ -1,23 +1,7 @@
 #!/bin/bash
 
-# Clone Sherpa-ONNX repository
-echo "Cloning Sherpa-ONNX repository..."
-git clone https://github.com/k2-fsa/sherpa-onnx.git
-
-# Download the pretrained model
-echo "Downloading the pretrained model..."
-mkdir -p sherpa-onnx/models
-cd sherpa-onnx/models
-wget -O sherpa-onnx-streaming-zipformer-en-2023-06-26.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-en-2023-06-26.tar.bz2
-
-# Extract the model
-echo "Extracting the pretrained model..."
-tar -xjf sherpa-onnx-streaming-zipformer-en-2023-06-26.tar.bz2
-rm sherpa-onnx-streaming-zipformer-en-2023-06-26.tar.bz2
-cd ../../
-
-# Install Python dependencies
-echo "Installing Python dependencies..."
-pip install -r requirements.txt
-
-echo "Setup complete."
+python3 sherpa-onnx/python-api-examples/streaming_server.py \
+  --encoder models/sherpa-onnx-streaming-zipformer-en-2023-06-26/encoder-epoch-99-avg-1-chunk-16-left-128.onnx \
+  --decoder models/sherpa-onnx-streaming-zipformer-en-2023-06-26/decoder-epoch-99-avg-1-chunk-16-left-128.onnx \
+  --joiner models/sherpa-onnx-streaming-zipformer-en-2023-06-26/joiner-epoch-99-avg-1-chunk-16-left-128.onnx \
+  --tokens models/sherpa-onnx-streaming-zipformer-en-2023-06-26/tokens.txt
