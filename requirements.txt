@@ -1,0 +1,8 @@
+gradio  
+websockets  
+numpy  
+scipy  
+torch  
+torchvision  
+torchaudio  
+onnxruntime
