@@ -14,6 +14,7 @@ class ASRClient:
         try:
             self.ws = await websockets.connect('ws://localhost:6006')
             print('WebSocket connection established.')
+            self.transcript = ''
             return True
         except Exception as e:
             print(f'Error connecting to WebSocket: {e}')
@@ -41,33 +42,59 @@ class ASRClient:
                 print(f'WebSocket error: {e}')
                 self.ws = None
 
-    async def close(self):
+    async def finish(self):
         if self.ws:
             try:
+                # Send a small tail padding to flush the server's buffer
+                tail_padding = np.zeros(int(16000 * 0.5), dtype=np.float32)  # 0.5 seconds of silence
+                await self.ws.send(tail_padding.tobytes())
+
+                print('Sending "Done" message to server...')
                 await self.ws.send('Done')
-                await self.ws.close()
-                self.ws = None
+
+                # Receive final transcriptions from the server
+                while True:
+                    try:
+                        message = await asyncio.wait_for(self.ws.recv(), timeout=1.0)
+                        if isinstance(message, bytes):
+                            message = message.decode('utf-8')
+                        # Parse JSON response
+                        data = json.loads(message)
+                        text = data.get('text', '')
+                        self.transcript = text
+                        print(f'Received final transcription: {text}')
+                    except asyncio.TimeoutError:
+                        # No more messages from server
+                        break
+                    except json.JSONDecodeError:
+                        print('Error decoding JSON from server response.')
+                        break
+                    except websockets.exceptions.ConnectionClosedOK:
+                        # Connection closed by the server
+                        print('WebSocket connection closed by server.')
+                        break
+
+                # Close the WebSocket connection
+                if self.ws.open:
+                    await self.ws.close()
                 print('WebSocket connection closed.')
+                self.ws = None
             except Exception as e:
-                print(f'Error closing WebSocket: {e}')
+                print(f'Error during finish: {e}')
                 self.ws = None
 
-async def start_recording(state):
-    # Create a new ASRClient instance for this client if not already created
-    if state is None:
-        state = ASRClient()
-    # Attempt to open WebSocket connection
-    success = await state.connect()
-    if not success:
-        # Return an error message to display in the transcription box
-        return state, 'Error: Failed to connect to ASR server.'
-    else:
-        state.transcript = ''
-        return state, ''  # Clear the transcription box
+asr_client = ASRClient()
 
-async def transcribe(audio_chunk, state):
-    if state is None or state.ws is None:
-        return state, ''
+async def start_recording():
+    success = await asr_client.connect()
+    if not success:
+        return 'Error: Failed to connect to ASR server.'
+    else:
+        return ''  # Clear the transcription box
+
+async def transcribe(audio_chunk):
+    if asr_client.ws is None:
+        return asr_client.transcript
     if audio_chunk is not None:
         sr, audio_data = audio_chunk
         audio_data = audio_data.astype(np.float32)
@@ -81,25 +108,27 @@ async def transcribe(audio_chunk, state):
         if max_abs > 0:
             audio_data = audio_data / max_abs
 
-        await state.send_audio(audio_data)
-        return state, state.transcript
-    else:
-        return state, state.transcript
+        # Send audio data to the server
+        await asr_client.send_audio(audio_data)
 
-async def stop_recording(state):
-    if state is not None:
-        await state.close()
-    return state
+        return asr_client.transcript
+    else:
+        # Recording has stopped
+        return asr_client.transcript
+
+async def stop_recording():
+    await asr_client.finish()
+    # Return the final transcription
+    return asr_client.transcript
 
 with gr.Blocks() as demo:
     transcript_box = gr.Textbox(label='Transcription')
     audio_input = gr.Audio(sources=['microphone'], streaming=True, label='Microphone Input')
-    state = gr.State()
 
     # Assign event handlers
-    audio_input.start_recording(fn=start_recording, inputs=state, outputs=[state, transcript_box])
-    audio_input.stream(fn=transcribe, inputs=[audio_input, state], outputs=[state, transcript_box])
-    audio_input.stop_recording(fn=stop_recording, inputs=state, outputs=state)
+    audio_input.start_recording(fn=start_recording, inputs=None, outputs=transcript_box)
+    audio_input.stream(fn=transcribe, inputs=audio_input, outputs=transcript_box)
+    audio_input.stop_recording(fn=stop_recording, inputs=None, outputs=transcript_box)
 
     demo.title = "Real-Time Streaming ASR with Gradio"
     demo.description = "Speak into your microphone and see the transcription in real-time."
