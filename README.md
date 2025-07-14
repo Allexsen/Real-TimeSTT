@@ -1,4 +1,4 @@
-# Real-Time Streaming ASR with Gradio and Sherpa-ONNX
+# Real-Time Streaming ASR using Gradio and Sherpa-ONNX pretrained model
 
 This application provides real-time speech recognition through a Gradio web interface, utilizing a streaming ASR server powered by Sherpa-ONNX, and a pretrained ASR model.
 
