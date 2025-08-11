@@ -4,7 +4,7 @@ This application provides real-time speech recognition through a Gradio web inte
 
 ## Video Demonstration
 
-[![Watch the demo video](https://img.youtube.com/vi/qCNUFAhDJ58/0.jpg)](https://youtu.be/qCNUFAhDJ58)
+[![Watch the demo video](https://img.youtube.com/vi/qCNUFAhDJ58/0.jpg)](https://youtu.be/B3whF4UQINs)
 
 
 ## Overview
